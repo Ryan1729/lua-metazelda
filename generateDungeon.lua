@@ -1,8 +1,11 @@
-local roomMaker = require("lua-metazelda.roomMaker")
+local tablex = require("pl.tablex")
+local rooms = require("lua-metazelda.rooms")
+local conditions = require("lua-metazelda.conditions")
 
 local push = table.insert
 
-local function getDefaultConstraints()
+--move to constraints module later
+ local function getDefaultConstraints()
   local constraints = {}
   
   constraints.maxKeys = 0
@@ -19,6 +22,19 @@ local function getDefaultConstraints()
     return result
   end
   
+  --returns a list of IDs of adjacent rooms
+  function constraints.getAdjacentRooms(id)
+    --TODO: make this make sense
+    local result = {}
+    for i = 1, constraints.maxRooms do
+      if i ~= id then
+        push(result, i)
+      end
+    end
+    
+    return result
+  end
+  
   return constraints
 end
 
@@ -28,11 +44,141 @@ local function getEntranceRoom(constraints)
           
   local id = constraints.initialRooms[math.random(1, #constraints.initialRooms)]
   
-  return roomMaker(id, constraints.getCoords(id), "start")
+  return rooms.make(id, constraints.getCoords(id), nil, "start", 0)
 end
 
-local function placeRooms(dungeon, levels, roomsPerLock)
-  --placeholder
+local function roomCount(dungeon)
+  --if rooms are sparsely stored, this will need to change
+  return #dungeon
+end
+
+local function getRoomFromDungeon(dungeon, roomId)
+  --one reason to change to sparse rep, possible duplicate ids!
+  for _, v in ipairs(dungeon) do
+    if v.id == roomId then
+      return v
+    end
+  end
+  
+  return nil
+end
+
+local function getRoomsFromKeyLevel(dungeon, keyLevel)
+  --if rooms are sparsely stored, this will need to change
+  --might be an idea to keep a copy of this, rather than having to make it each time
+  local result = {}
+  
+  for _, v in ipairs(dungeon) do
+    if v.keyLevel == keyLevel then
+      push(result, v)
+    end
+  end
+  
+  return result
+end
+
+local function addRoom (dungeon, room)
+  --should the key into dungeon be the room id?
+  push(dungeon, room)
+  return dungeon
+end
+
+-----maybe move into utils module?
+--Fisher-Yates shuffle
+--found at https://coronalabs.com/blog/2014/09/30/tutorial-how-to-shuffle-table-items/
+function shuffleTable( t )
+    local rand = math.random 
+    assert( t, "shuffleTable() expected a table, got nil" )
+    local iterations = #t
+    local j
+    
+    for i = iterations, 2, -1 do
+        j = rand(i)
+        t[i], t[j] = t[j], t[i]
+    end
+end
+
+local function chooseFreeEdge(room, dungeon)
+  local adjacentRooms = constraints.getAdjacentRooms(room.id)
+  
+  for _, v in ipairs(adjacentRooms) do
+    if not getRoomFromDungeon(dungeon, v.id) then
+      return v
+    end
+  end
+  
+  return nil
+end
+
+local function chooseRoomWithFreeEdge(roomList, constraints, dungeon)
+  --this assumes the roomList is an array
+  local rooms = tablex.deepcopy(roomList)
+  
+  shuffleTable(rooms)
+  
+  for _, v in ipairs(rooms) do
+    local freeEdge = chooseFreeEdge(v, dungeon)
+    if freeEdge then
+      return freeEdge
+    end
+  end
+  
+  return nil
+end
+
+local function placeRooms(dungeon constraints, levels, roomsPerLock)
+  local keyLevel = 0
+  local latestKey = nil
+  local cond = nil
+
+  local usableKeys = constraints.maxKeys
+  if constraints.isBossRoomLocked then
+    usableKeys = usableKeys - 1
+  end
+  
+  --Loop to place rooms and link them
+  while roomCount(dungeon) < constraints.maxRooms do
+      
+    local doLock = false;
+    
+    -- Decide whether we need to place a new lock
+    -- (Don't place the last lock, since that's reserved for the boss)
+    if #getRoomsFromKeyLevel(dungeon, keyLevel) >= roomsPerLock and keyLevel < usableKeys then
+      latestKey = keyLevel
+      keyLevel = keyLevel + 1
+      cond = conditions.addKeyLevel(condition, latestKey)
+      doLock = true
+    end
+    
+    -- Find an existing room with a free edge:
+    local parentRoom = nil
+    if not doLock and math.random(10) > 1 then
+        parentRoom = chooseRoomWithFreeEdge(getRoomsFromKeyLevel(dungeon, keyLevel), keyLevel)
+    end
+    
+    if parentRoom == nil then
+        parentRoom = chooseRoomWithFreeEdge(dungeon, keyLevel);
+        doLock = true;
+    end
+    
+    if parentRoom == nil then
+      return false, dungeon
+    end
+    
+    -- Decide which direction to put the new room in relative to the
+    -- parent
+    local nextId = chooseFreeEdge(parentRoom, keyLevel)
+    local room = rooms.make(nextId, constraints.getCoords(nextId), parentRoom, nil, cond)
+    
+    -- Add the room to the dungeon
+    assert (getRoomFromDungeon(dungeon, room.id) == nil, "room already used!")
+    
+    dungeon = addRoom(dungeon, room)
+    rooms.addChild(parentRoom, room)
+    dungeon.link(parentRoom, room, doLock and latestKey or null);
+    
+    levels.addRoom(keyLevel, room);
+  end
   
   return true, dungeon 
 end
@@ -58,10 +204,9 @@ local function generateDungeon (constraints, seed)
     local dungeon = {};
     
     -- Create the entrance to the dungeon:
-    --    should the key into dungeon be the room id?
-    push(dungeon, getEntranceRoom(constraints))
+    dungeon = addRoom(dungeon, getEntranceRoom(constraints))
     
-    roomsPlaced, dungeon = placeRooms(dungeon, levels, roomsPerLock)
+    roomsPlaced, dungeon = placeRooms(dungeon, constraints, levels, roomsPerLock)
     
     if not roomsPlaced then 
       --We can run out of rooms when the constraints are too tight
