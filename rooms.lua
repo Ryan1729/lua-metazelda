@@ -28,17 +28,38 @@ function rooms.addChild(room, child)
   return room
 end
 
-function rooms.link(room1, room2, cond)
-  linkOneWay(room1, room2, cond or nil);
-  linkOneWay(room2, room1, cond or nil);
+function rooms.getEdge(room, targetRoomId)
+  for _, e in ipairs(room.edges) do
+    if e.id == targetRoomId then
+      return e
+    end
+  end
+  return nil
 end
 
-function rooms.linkOneWay(room1, room2, cond)
-  --TODO: chack that the rooms are in the dungeon first?
-  room1.setEdge(room2.id, cond or nil);
-  --rooms.setEdge(room1, room2, cond or nil)
-  --or rooms.setEdge(room1.id, room2.id, cond or nil) ?
+function rooms.setEdge(room, targetRoomId, condition)
+  local e = rooms.getEdge(room, targetRoomId)
+  
+  if e ~= nil then
+    e.condition = condition;
+  else
+    e = {targetRoomId = targetRoomId, condition = condition};
+    push(room.edges, e)
+  end
+  
+  return e
+end
+
+function rooms.linkOneWay(room1, room2, condition)
+  --TODO: check that the rooms are in the dungeon first?
+  rooms.setEdge(room1, room2.id, condition or nil)
   
 end
+
+function rooms.link(room1, room2, condition)
+  rooms.linkOneWay(room1, room2, condition or nil);
+  rooms.linkOneWay(room2, room1, condition or nil);
+end
+
     
 return rooms

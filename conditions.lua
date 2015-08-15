@@ -19,16 +19,16 @@ end
 
 
 
-function conditions.add(cond1, cond2) 
+function conditions.add(condition1, condition2) 
   local result = {}
   
-  if (cond1.switchState == "either") then
-    result.switchState = cond2.switchState
+  if (condition1.switchState == "either") then
+    result.switchState = condition2.switchState
   else
-    assert (cond1.switchState == cond2.switchState, "incompatible conditions added togther")
+    assert (condition1.switchState == condition2.switchState, "incompatible conditions added togther")
   end
   
-  result.keyLevel = getCombinedKeyLevel(cond1.keyLevel, cond2.keyLevel)
+  result.keyLevel = getCombinedKeyLevel(condition1.keyLevel, condition2.keyLevel)
   
   return result
 end

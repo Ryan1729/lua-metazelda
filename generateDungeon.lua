@@ -98,12 +98,12 @@ function shuffleTable( t )
     end
 end
 
-local function chooseFreeEdge(room, dungeon)
+local function chooseFreeEdge(room, constraints, dungeon)
   local adjacentRooms = constraints.getAdjacentRooms(room.id)
   
-  for _, v in ipairs(adjacentRooms) do
-    if not getRoomFromDungeon(dungeon, v.id) then
-      return v
+  for _, id in ipairs(adjacentRooms) do
+    if not getRoomFromDungeon(dungeon, id) then
+      return id
     end
   end
   
@@ -111,25 +111,28 @@ local function chooseFreeEdge(room, dungeon)
 end
 
 local function chooseRoomWithFreeEdge(roomList, constraints, dungeon)
-  --this assumes the roomList is an array
-  local rooms = tablex.deepcopy(roomList)
+  --we only need a shallow copy here, in fact, 
+  --since rooms reference other rooms cyclically,
+  --a deep copy causes a stack overflow
+  local rooms = tablex.copy(roomList)
   
   shuffleTable(rooms)
   
-  for _, v in ipairs(rooms) do
-    local freeEdge = chooseFreeEdge(v, dungeon)
+  --this assumes the roomList is an array
+  for _, currentRoom in ipairs(rooms) do
+    local freeEdge = chooseFreeEdge(currentRoom, constraints, dungeon)
     if freeEdge then
-      return freeEdge
+      return currentRoom
     end
   end
   
   return nil
 end
 
-local function placeRooms(dungeon constraints, levels, roomsPerLock)
+local function placeRooms(dungeon, constraints, levels, roomsPerLock)
   local keyLevel = 0
   local latestKey = nil
-  local cond = nil
+  local condition = nil
 
   local usableKeys = constraints.maxKeys
   if constraints.isBossRoomLocked then
@@ -146,18 +149,18 @@ local function placeRooms(dungeon constraints, levels, roomsPerLock)
     if #getRoomsFromKeyLevel(dungeon, keyLevel) >= roomsPerLock and keyLevel < usableKeys then
       latestKey = keyLevel
       keyLevel = keyLevel + 1
-      cond = conditions.addKeyLevel(condition, latestKey)
+      condition = conditions.addKeyLevel(condition, latestKey)
       doLock = true
     end
     
     -- Find an existing room with a free edge:
     local parentRoom = nil
     if not doLock and math.random(10) > 1 then
-        parentRoom = chooseRoomWithFreeEdge(getRoomsFromKeyLevel(dungeon, keyLevel), keyLevel)
+        parentRoom = chooseRoomWithFreeEdge(getRoomsFromKeyLevel(dungeon, keyLevel), constraints, dungeon)
     end
     
     if parentRoom == nil then
-        parentRoom = chooseRoomWithFreeEdge(dungeon, keyLevel);
+        parentRoom = chooseRoomWithFreeEdge(getRoomsFromKeyLevel(dungeon, keyLevel), constraints, dungeon)
         doLock = true;
     end
     
@@ -167,17 +170,17 @@ local function placeRooms(dungeon constraints, levels, roomsPerLock)
     
     -- Decide which direction to put the new room in relative to the
     -- parent
-    local nextId = chooseFreeEdge(parentRoom, keyLevel)
-    local room = rooms.make(nextId, constraints.getCoords(nextId), parentRoom, nil, cond)
+    local nextId = chooseFreeEdge(parentRoom, constraints, dungeon)
+    local room = rooms.make(nextId, constraints.getCoords(nextId), parentRoom, nil, condition)
     
     -- Add the room to the dungeon
     assert (getRoomFromDungeon(dungeon, room.id) == nil, "room already used!")
     
     dungeon = addRoom(dungeon, room)
     rooms.addChild(parentRoom, room)
-    dungeon.link(parentRoom, room, doLock and latestKey or null);
+    rooms.link(parentRoom, room, doLock and latestKey or nil);
     
-    levels.addRoom(keyLevel, room);
+    --levels.addRoom(keyLevel, room);
   end
   
   return true, dungeon 
@@ -190,7 +193,7 @@ local function generateDungeon (constraints, seed)
   
   math.randomseed(seed)
   
-  local result = {}
+  local dungeon
   
   local roomsPerLock
   if constraints.maxKeys > 0 then
@@ -201,7 +204,7 @@ local function generateDungeon (constraints, seed)
   
   local roomsPlaced = false
   while not roomsPlaced do
-    local dungeon = {};
+    dungeon = {};
     
     -- Create the entrance to the dungeon:
     dungeon = addRoom(dungeon, getEntranceRoom(constraints))
@@ -220,7 +223,7 @@ local function generateDungeon (constraints, seed)
     end
   end
   
-  return result
+  return dungeon
 end
 
 return generateDungeon
