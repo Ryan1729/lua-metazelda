@@ -10,6 +10,7 @@ local push = table.insert
   
   constraints.maxKeys = 0
   constraints.maxRooms = 42
+  constraints.maxRetries = 10
   
   constraints.initialRooms = {1, 2, 3}
   
@@ -33,6 +34,11 @@ local push = table.insert
     end
     
     return result
+  end
+  
+  --check any additional constraints
+  function constraints.isAcceptable(dungeon)
+    return math.random(1,10) > 3--true
   end
   
   return constraints
@@ -193,37 +199,61 @@ local function generateDungeon (constraints, seed)
   
   math.randomseed(seed)
   
-  local dungeon
   
-  local roomsPerLock
-  if constraints.maxKeys > 0 then
-    roomsPerLock = constraints.maxRooms / constraints.maxKeys
-  else
-    roomsPerLock = constraints.maxRooms;
-  end
   
-  local roomsPlaced = false
-  while not roomsPlaced do
-    dungeon = {};
+  local function generateHelper ()
+    local dungeon
     
-    -- Create the entrance to the dungeon:
-    dungeon = addRoom(dungeon, getEntranceRoom(constraints))
+    local roomsPerLock
     
-    roomsPlaced, dungeon = placeRooms(dungeon, constraints, levels, roomsPerLock)
+    if constraints.maxKeys > 0 then
+      roomsPerLock = constraints.maxRooms / constraints.maxKeys
+    else
+      roomsPerLock = constraints.maxRooms;
+    end
     
-    if not roomsPlaced then 
-      --We can run out of rooms when the constraints are too tight
-      print("Ran out of rooms. roomsPerLock was " .. roomsPerLock)
-      roomsPerLock = floor( roomsPerLock * constraints.getMaxKeys / constraints.getMaxKeys + 1 )
-      print("roomsPerLock is now " .. roomsPerLock)
+    local roomsPlaced = false
+    while not roomsPlaced do
+      dungeon = {};
       
-      if roomsPerLock <= 0 then
-        error("Failed to place rooms. Have you forgotten to disable boss-locking?")
+      -- Create the entrance to the dungeon:
+      dungeon = addRoom(dungeon, getEntranceRoom(constraints))
+      
+      roomsPlaced, dungeon = placeRooms(dungeon, constraints, levels, roomsPerLock)
+      
+      if not roomsPlaced then 
+        --We can run out of rooms when the constraints are too tight
+        print("Ran out of rooms. roomsPerLock was " .. roomsPerLock)
+        roomsPerLock = floor( roomsPerLock * constraints.getMaxKeys / constraints.getMaxKeys + 1 )
+        print("roomsPerLock is now " .. roomsPerLock)
+        
+        if roomsPerLock <= 0 then
+          error("Failed to place rooms. Have you forgotten to disable boss-locking?")
+        end
       end
+    end
+    
+    if (not constraints.isAcceptable) or constraints.isAcceptable(dungeon) then
+      return dungeon
+    else
+      error("Unacceptable Dungeon!")
     end
   end
   
-  return dungeon
+  local retries = 0
+  
+  while(retries < constraints.maxRetries) do
+    
+    local status, dungeon = pcall(generateHelper)
+    
+    if status then
+      return dungeon
+    else
+      retries = retries + 1
+    end
+  
+  end
+  
 end
 
 return generateDungeon
