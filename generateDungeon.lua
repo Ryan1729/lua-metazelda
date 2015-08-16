@@ -131,7 +131,7 @@ end
 
 local function placeRooms(dungeon, constraints, levels, roomsPerLock)
   local keyLevel = 0
-  local latestKey = nil
+  local latestKey = 0
   local condition = nil
 
   local usableKeys = constraints.maxKeys

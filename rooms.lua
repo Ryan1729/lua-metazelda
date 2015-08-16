@@ -52,13 +52,13 @@ end
 
 function rooms.linkOneWay(room1, room2, condition)
   --TODO: check that the rooms are in the dungeon first?
-  rooms.setEdge(room1, room2.id, condition or nil)
+  rooms.setEdge(room1, room2.id, condition or 0)
   
 end
 
 function rooms.link(room1, room2, condition)
-  rooms.linkOneWay(room1, room2, condition or nil);
-  rooms.linkOneWay(room2, room1, condition or nil);
+  rooms.linkOneWay(room1, room2, condition or 0);
+  rooms.linkOneWay(room2, room1, condition or 0);
 end
 
     
