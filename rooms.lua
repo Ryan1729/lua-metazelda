@@ -1,15 +1,16 @@
+local conditions = require("lua-metazelda.conditions")
 local rooms = {}
 
 local push = table.insert
 
-function rooms.make(id, coords, parent, item, keyLevel)
+function rooms.make(id, coords, parent, item, condition)
   local room = {}
   
   room.id = id
   room.coords = coords
   room.parent = parent
   room.item = item
-  room.keyLevel = keyLevel or 0
+  room.condition = condition or conditions.make()
   room.edges = {}
   room.children = {}
   
@@ -17,7 +18,7 @@ function rooms.make(id, coords, parent, item, keyLevel)
 end
 
 function rooms.setKeyLevel(room, keyLevel)
-  room.keyLevel = math.max(room.keyLevel, keyLevel)
+  room.condition = conditions.addKeyLevel(room, keyLevel)
   
   return room
 end
@@ -30,7 +31,7 @@ end
 
 function rooms.getEdge(room, targetRoomId)
   for _, e in ipairs(room.edges) do
-    if e.id == targetRoomId then
+    if e.targetRoomId == targetRoomId then
       return e
     end
   end
@@ -52,13 +53,13 @@ end
 
 function rooms.linkOneWay(room1, room2, condition)
   --TODO: check that the rooms are in the dungeon first?
-  rooms.setEdge(room1, room2.id, condition or 0)
+  rooms.setEdge(room1, room2.id, condition or conditions.make())
   
 end
 
 function rooms.link(room1, room2, condition)
-  rooms.linkOneWay(room1, room2, condition or 0);
-  rooms.linkOneWay(room2, room1, condition or 0);
+  rooms.linkOneWay(room1, room2, condition or conditions.make());
+  rooms.linkOneWay(room2, room1, condition or conditions.make());
 end
 
     

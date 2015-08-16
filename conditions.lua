@@ -33,4 +33,10 @@ function conditions.add(condition1, condition2)
   return result
 end
 
+function conditions.implies(condition1, condition2) 
+  return condition1.keyLevel >= condition2.keyLevel and
+          (condition1.switchState == condition2.switchState or
+          condition2.switchState == "either")
+end
+
 return conditions
