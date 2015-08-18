@@ -114,7 +114,7 @@ end
 -----maybe move into utils module?
 --Fisher-Yates shuffle
 --found at https://coronalabs.com/blog/2014/09/30/tutorial-how-to-shuffle-table-items/
-function shuffleTable( t )
+local function shuffleTable( t )
   local rand = math.random 
   assert( t, "shuffleTable() expected a table, got nil" )
   local iterations = #t
@@ -206,8 +206,9 @@ local function placeRooms(dungeon, constraints, levels, roomsPerLock)
     assert (getRoomFromDungeon(dungeon, room.id) == nil, "room already used!")
 
     dungeon = addRoom(dungeon, room)
+    assert(type(room.condition) == "table")
     rooms.addChild(parentRoom, room)
-    rooms.link(parentRoom, room, doLock and latestKey or nil);
+    rooms.link(parentRoom, room, doLock and conditions.make(latestKey) or nil);
 
     --levels.addRoom(keyLevel, room);
   end
@@ -310,6 +311,126 @@ local function placeBossGoalRooms (dungeon, constraints)
   return dungeon
 end
 
+--find the first room in the dungeon that has the same item value as the one passed in
+local function findRoomWithItem(item, dungeon)
+  for _, room in ipairs(dungeon) do
+    if room.item == item then
+      return room
+    end
+  end
+  return nil
+end
+
+--Returns a path from the goal to the dungeon entrance, along the 'parent'
+--relations.
+local function getSolutionPath(dungeon)
+  local solution = {};
+  local room = findRoomWithItem("goal", dungeon)
+  while (room ~= nil) do
+      push(solution, room)
+      room = room.parent;
+  end
+  return solution;
+end
+
+local function removeDescendantsFromList(roomList, room)
+  rooms.remove(roomList, room)
+  for _, child in ipairs(room.children) do
+      roomList = removeDescendantsFromList(roomList, child);
+  end
+  return roomList
+end
+
+-- Adds extra conditions to the given room's preconditions and all
+-- of its descendants.
+local function addConditionToDescendants(room, cond)
+  room.condition = conditions.add(room.condition, cond)
+  for _, child in ipairs(room.children) do
+      addConditionToDescendants(child, cond);
+  end
+end
+
+--Randomly locks descendant rooms of the given room with
+--edges that require the switch to be in the given state.
+local function switchLockChildRooms(room, givenState, dungeon)
+  local anyLocks = false;
+  local state = givenState ~= "either" 
+          and givenState 
+          or (math.random(1,2) > 1
+              and "on"
+              or "off");
+  local currentCondition = conditions.make(nil, state)
+  
+  for _, edge in ipairs(room.edges) do
+    local neighborId = edge.targetRoomId
+    local nextRoom = getRoomFromDungeon(dungeon, neighborId)
+    if (tablex.find(room.children, nextRoom) ~= nil) then
+      if (conditions.isDefault(rooms.getEdge(room, neighborId).condition) --[[and math.random() < 0.25]]) then
+          rooms.link(room, nextRoom, currentCondition)
+          addConditionToDescendants(nextRoom, currentCondition)
+          anyLocks = true;
+      else
+          anyLocks = anyLocks or switchLockChildRooms(nextRoom, currentCondition.switchState, dungeon)
+      end
+      
+      if (givenState == "either") then
+          currentCondition = conditions.invertSwitchState(currentCondition);
+      end
+    end
+  end
+  return anyLocks;
+end
+
+
+local function placeSwitches(constraints, dungeon)
+  if constraints.maxSwitches and constraints.maxSwitches <= 0 then 
+    return dungeon
+  end
+
+  local solution = getSolutionPath(dungeon);
+
+  for attempt = 1, 10 do
+    
+    local rooms = tablex.copy(dungeon)
+    shuffleTable(rooms);
+    shuffleTable(solution);
+    
+    -- Pick a base room from the solution path so that the player
+    -- will have to encounter a switch-lock to solve the dungeon.
+    local baseRoom = nil;
+    for _, room in ipairs(solution) do
+        if #room.children > 1 and room.parent ~= nil then
+          baseRoom = room;
+          break;
+        end
+    end
+    if baseRoom == nil then
+      error("no base room found in placeSwitches")
+    end
+--    Condition baseRoomCond = baseRoom.getPrecond();
+
+    local potentialSwitchRooms = removeDescendantsFromList(rooms, baseRoom);
+
+    local switchRoom = nil
+    for _, room in ipairs(potentialSwitchRooms) do
+        if (room and room.item == nil and
+                conditions.implies(baseRoom.condition, room.condition) and
+                constraints.roomCanFitItem(room.id, "switch")) then
+          switchRoom = room
+          break
+        end
+    end
+    
+    if (switchRoom ~= nil) then
+      if (switchLockChildRooms(baseRoom, "either", dungeon)) then
+          switchRoom.item = "switch"
+          return dungeon;
+      end
+    end
+  end
+  error("took too many tries to place switches")
+end
+
 local function generateHelper (constraints)
   local dungeon
 
@@ -333,7 +454,7 @@ local function generateHelper (constraints)
     if not roomsPlaced then 
       --We can run out of rooms when the constraints are too tight
       print("Ran out of rooms. roomsPerLock was " .. roomsPerLock)
-      roomsPerLock = floor( roomsPerLock * constraints.getMaxKeys / constraints.getMaxKeys + 1 )
+      roomsPerLock = math.floor( roomsPerLock * constraints.getMaxKeys / constraints.getMaxKeys + 1 )
       print("roomsPerLock is now " .. roomsPerLock)
 
       if roomsPerLock <= 0 then
@@ -344,21 +465,20 @@ local function generateHelper (constraints)
 
   dungeon = placeBossGoalRooms(dungeon, constraints);
 
---  // Place switches and the locks that require it:
---  placeSwitches();
+--  Place switch and the locks that require it:
+  dungeon = placeSwitches(constraints, dungeon)
 
---  // Make the dungeon less tree-like:
+--  Make the dungeon less tree-like:
 --  graphify();
 
 --  computeIntensity(levels);
 
---  // Place the keys within the dungeon:
+--  -- Place the keys within the dungeon:
 --  placeKeys(levels);
 
 --  if (levels.keyCount()-1 != constraints.getMaxKeys())
 --    throw new RetryException();
 
---  checkAcceptable();
 
   if (not constraints.isAcceptable) or constraints.isAcceptable(dungeon) then
     return dungeon

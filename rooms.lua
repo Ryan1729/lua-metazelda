@@ -1,3 +1,4 @@
+local tablex = require("pl.tablex")
 local conditions = require("lua-metazelda.conditions")
 local rooms = {}
 
@@ -10,6 +11,7 @@ function rooms.make(id, coords, parent, item, condition)
   room.coords = coords
   room.parent = parent
   room.item = item
+  assert(type(condition) == "table")
   room.condition = condition or conditions.make()
   room.edges = {}
   room.children = {}
@@ -62,5 +64,17 @@ function rooms.link(room1, room2, condition)
   rooms.linkOneWay(room2, room1, condition or conditions.make());
 end
 
+--using tablex.deepcompare causes a stack overflow, so instead we assume that all
+--rooms in a roomList have unique IDs and just compare those.
+--I think java used hashes to compare things? Should we do that here?
+function rooms.remove(roomList, room)
+  for k, foundRoom in ipairs(roomList) do
+    if foundRoom.id == room.id then
+      table.remove(roomList, k)
+    end
+  end
+  
+  return roomList
+end
     
 return rooms
