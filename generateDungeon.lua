@@ -2,56 +2,9 @@ local tablex = require("pl.tablex")
 local Set = require("pl.Set")
 local rooms = require("lua-metazelda.rooms")
 local conditions = require("lua-metazelda.conditions")
+local getDefaultConstraints = require("lua-metazelda.getDefaultConstraints")
 
 local push = table.insert
-
---move to constraints module later
-local function getDefaultConstraints()
-  local constraints = {}
-
-  constraints.isBossRoomLocked = true
-  constraints.generateGoal = true
-  constraints.maxKeys = 0
-  constraints.maxRooms = 42
-  constraints.maxRetries = 10
-
-  constraints.initialRooms = {1, 2, 3}
-
-  function constraints.getCoords(id)
-    local result = {}
-
-    result.x = id % 6
-    result.y = id % 7
-
-    return result
-  end
-
-  --returns a list of IDs of adjacent rooms
-  function constraints.getAdjacentRooms(id)
-    --TODO: make this make sense
-    local result = {}
-    for i = 1, constraints.maxRooms do
-      if i ~= id then
-        push(result, i)
-      end
-    end
-
-    return result
-  end
-
-  function constraints.roomCanFitItem()
-    return true
-  end
-  
-  --check any additional constraints
-  function constraints.isAcceptable(dungeon)
-    return math.random(1,10) > 3--true
-  end
-
-  
-
-  return constraints
-end
 
 local function getEntranceRoom(constraints)
   -- pick one of the possible initial rooms and
@@ -81,13 +34,13 @@ end
 local function keyCount(dungeon)
   --might be an idea to keep a copy of this, rather than having to make it each time
   local seenAlready = Set{}
-  
+
   for _, v in ipairs(dungeon) do
     if not seenAlready[v.keyLevel] then
       seenAlready = seenAlready + Set{v.keyLevel}
     end
   end
-  
+
   return Set:len(seenAlready)
 end
 
@@ -218,25 +171,25 @@ end
 
 local function roomIsNotEmpty(room, parent)
   return parent == nil or
-    #parent.children ~= 1 or
-    room.item ~= nil or
-    not conditions.implies(parent.condition, room.condition)
+  #parent.children ~= 1 or
+  room.item ~= nil or
+  not conditions.implies(parent.condition, room.condition)
 end
 
 local function roomCouldBeGoalRoom(room, constraints)
   if #room.children > 0 or room.item ~= nil then
     return false
   end
-  
+
   local parent = room.parent
   if roomIsNotEmpty(room, parent) then
     return false
   end
-  
+
   if constraints and constraints.roomCanFitItem then
     if constraints.generateGoal then
       if not constraints.roomCanFitItem(room.id, "goal") or
-        not constraints.roomCanFitItem(parent.id, "boss") then 
+      not constraints.roomCanFitItem(parent.id, "boss") then 
         return false
       end
     else
@@ -257,57 +210,57 @@ local function placeBossGoalRooms (dungeon, constraints)
       push(possibleGoalRooms, room)
     end
   end
-  
+
   if #possibleGoalRooms <= 0 then
     error("No place for the goal room!")
   end
-  
+
   local goalRoom = possibleGoalRooms[math.random(1, #possibleGoalRooms)]
   local bossRoom = goalRoom.parent
-  
+
   --TODO: check earlier and save some processing?
   if not constraints.generateGoal then
     bossRoom = goalRoom
     goalRoom = nil
   end
-  
+
   if goalRoom ~= nil then 
     goalRoom.item = "goal"
   end
   bossRoom.item = "boss"
-  
+
   if constraints.isBossRoomLocked then
     --local oldKeyLevel = bossRoom.condition.keyLevel
-      local newKeyLevel = math.min(keyCount(dungeon), constraints.maxKeys)
-    
+    local newKeyLevel = math.min(keyCount(dungeon), constraints.maxKeys)
+
 --    local oldKeyLevelRooms = getRoomsFromKeyLevel(dungeon, oldKeyLevel)
 --    if goalRoom ~= nil then
 --      oldKeyLevelRooms.remove(goalRoom)
 --    end
 --    oldKeyLevelRooms.remove(bossRoom);
-    
+
 --    if goalRoom ~= nil levels.addRoom(newKeyLevel, goalRoom);
 --    levels.addRoom(newKeyLevel, bossRoom);
-    
+
     local bossKey = conditions.make(newKeyLevel-1)
     local precond = conditions.add(bossRoom.condition, bossKey);
     bossRoom.condition = precond
     if goalRoom ~= nil then
       goalRoom.condition = precond
     end
-    
+
     if newKeyLevel == 0 then
       rooms.link(bossRoom.parent, bossRoom)
     else
       rooms.link(bossRoom.parent, bossRoom, bossKey)
     end
-    
+
     if goalRoom ~= nil then
       rooms.link(bossRoom, goalRoom);
     end
-    
+
   end
-  
+
   return dungeon
 end
 
@@ -327,8 +280,8 @@ local function getSolutionPath(dungeon)
   local solution = {};
   local room = findRoomWithItem("goal", dungeon)
   while (room ~= nil) do
-      push(solution, room)
-      room = room.parent;
+    push(solution, room)
+    room = room.parent;
   end
   return solution;
 end
@@ -336,7 +289,7 @@ end
 local function removeDescendantsFromList(roomList, room)
   rooms.remove(roomList, room)
   for _, child in ipairs(room.children) do
-      roomList = removeDescendantsFromList(roomList, child);
+    roomList = removeDescendantsFromList(roomList, child);
   end
   return roomList
 end
@@ -346,7 +299,7 @@ end
 local function addConditionToDescendants(room, cond)
   room.condition = conditions.add(room.condition, cond)
   for _, child in ipairs(room.children) do
-      addConditionToDescendants(child, cond);
+    addConditionToDescendants(child, cond);
   end
 end
 
@@ -355,26 +308,26 @@ end
 local function switchLockChildRooms(room, givenState, dungeon)
   local anyLocks = false;
   local state = givenState ~= "either" 
-          and givenState 
-          or (math.random(1,2) > 1
-              and "on"
-              or "off");
+  and givenState 
+  or (math.random(1,2) > 1
+    and "on"
+    or "off");
   local currentCondition = conditions.make(nil, state)
-  
+
   for _, edge in ipairs(room.edges) do
     local neighborId = edge.targetRoomId
     local nextRoom = getRoomFromDungeon(dungeon, neighborId)
     if (tablex.find(room.children, nextRoom) ~= nil) then
       if (conditions.isDefault(rooms.getEdge(room, neighborId).condition) --[[and math.random() < 0.25]]) then
-          rooms.link(room, nextRoom, currentCondition)
-          addConditionToDescendants(nextRoom, currentCondition)
-          anyLocks = true;
+        rooms.link(room, nextRoom, currentCondition)
+        addConditionToDescendants(nextRoom, currentCondition)
+        anyLocks = true;
       else
-          anyLocks = anyLocks or switchLockChildRooms(nextRoom, currentCondition.switchState, dungeon)
+        anyLocks = anyLocks or switchLockChildRooms(nextRoom, currentCondition.switchState, dungeon)
       end
-      
+
       if (givenState == "either") then
-          currentCondition = conditions.invertSwitchState(currentCondition);
+        currentCondition = conditions.invertSwitchState(currentCondition);
       end
     end
   end
@@ -390,19 +343,19 @@ local function placeSwitches(constraints, dungeon)
   local solution = getSolutionPath(dungeon);
 
   for attempt = 1, 10 do
-    
+
     local rooms = tablex.copy(dungeon)
     shuffleTable(rooms);
     shuffleTable(solution);
-    
+
     -- Pick a base room from the solution path so that the player
     -- will have to encounter a switch-lock to solve the dungeon.
     local baseRoom = nil;
     for _, room in ipairs(solution) do
-        if #room.children > 1 and room.parent ~= nil then
-          baseRoom = room;
-          break;
-        end
+      if #room.children > 1 and room.parent ~= nil then
+        baseRoom = room;
+        break;
+      end
     end
     if baseRoom == nil then
       error("no base room found in placeSwitches")
@@ -413,22 +366,60 @@ local function placeSwitches(constraints, dungeon)
 
     local switchRoom = nil
     for _, room in ipairs(potentialSwitchRooms) do
-        if (room and room.item == nil and
-                conditions.implies(baseRoom.condition, room.condition) and
-                constraints.roomCanFitItem(room.id, "switch")) then
-          switchRoom = room
-          break
-        end
+      if (room and room.item == nil and
+        conditions.implies(baseRoom.condition, room.condition) and
+        constraints.roomCanFitItem(room.id, "switch")) then
+        switchRoom = room
+        break
+      end
     end
-    
+
     if (switchRoom ~= nil) then
       if (switchLockChildRooms(baseRoom, "either", dungeon)) then
-          switchRoom.item = "switch"
-          return dungeon;
+        switchRoom.item = "switch"
+        return dungeon
       end
     end
   end
   error("took too many tries to place switches")
+end
+
+local function graphify(constraints, dungeon)
+
+  for _, room in ipairs(dungeon) do
+    if not (room.item == "goal" or room.item == "boss") then
+
+      for k, nextId in ipairs(constraints.getAdjacentRooms(room.id)) do
+
+        local nextRoom = getRoomFromDungeon(dungeon, nextId)
+        if not (rooms.getEdge(room, nextId) ~= nil or nextRoom == nil or room.item == "goal" or room.item == "boss") then
+
+          local forwardImplies = conditions.implies(room.condition, nextRoom.condition)
+          local backwardImplies =conditions.implies(nextRoom.condition, room.condition)
+          if (forwardImplies and backwardImplies) then
+            --this implies both rooms are at the same keyLevel.
+            if (math.random() < constraints.edgeGraphifyProbability(room.id, nextRoom.id)) then
+              rooms.link(room, nextRoom)
+            end
+          else
+            local difference = conditions.singleSymbolDifference(
+              room.condition,
+              nextRoom.condition
+            )
+
+            if difference ~= nil and (
+                difference.switchState == "either" or
+                math.random() < constraints.edgeGraphifyProbability(room.id, nextRoom.id)
+              ) then
+              rooms.link(room, nextRoom, difference);
+            end
+          end
+        end
+      end
+    end
+  end
+  
+  return dungeon
 end
 
 local function generateHelper (constraints)
@@ -469,7 +460,7 @@ local function generateHelper (constraints)
   dungeon = placeSwitches(constraints, dungeon)
 
 --  Make the dungeon less tree-like:
---  graphify();
+  dungeon = graphify(constraints, dungeon)
 
 --  computeIntensity(levels);
 
