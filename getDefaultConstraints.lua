@@ -8,6 +8,8 @@ local function getDefaultConstraints()
   constraints.maxKeys = 0
   constraints.maxRooms = 42
   constraints.maxRetries = 10
+  constraints.intensityEaseOff = 0.2
+  constraints.intensityGrowthJitter = 0.1
 
   constraints.initialRooms = {1, 2, 3}
 

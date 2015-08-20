@@ -87,8 +87,8 @@ function conditions.singleSymbolDifference(condition1, condition2)
     end
     
     local nonEither = condition1.switchState ~= "either"
-            and condition1.switchState
-            or condition2.switchState
+      and condition1.switchState
+      or condition2.switchState
     
     return conditions.make(nil, nonEither)
   end

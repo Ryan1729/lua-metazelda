@@ -202,7 +202,7 @@ local function roomCouldBeGoalRoom(room, constraints)
   return true
 end
 
-local function placeBossGoalRooms (dungeon, constraints)
+local function placeBossGoalRooms (constraints, dungeon)
   local possibleGoalRooms = {}
 
   for _, room in ipairs(dungeon) do
@@ -408,8 +408,8 @@ local function graphify(constraints, dungeon)
             )
 
             if difference ~= nil and (
-                difference.switchState == "either" or
-                math.random() < constraints.edgeGraphifyProbability(room.id, nextRoom.id)
+              difference.switchState == "either" or
+              math.random() < constraints.edgeGraphifyProbability(room.id, nextRoom.id)
               ) then
               rooms.link(room, nextRoom, difference);
             end
@@ -417,6 +417,78 @@ local function graphify(constraints, dungeon)
         end
       end
     end
+  end
+
+  return dungeon
+end
+
+--Recursively applies the given intensity to the given room, and
+--higher intensities to each of its descendants that are within the same
+--keyLevel.
+--Intensities set by this method may (will) be outside of the normal range
+--from 0.0 to 1.0. See normalizeIntensity to correct this.
+
+--returns the maximum intensity applied
+local function applyIntensity(room, intensity, constraints)
+  intensity = intensity * 
+    ((1.0 - constraints.intensityGrowthJitter/2.0) +
+    (constraints.intensityGrowthJitter * math.random()));
+
+  room.intensity = intensity
+
+  local maxIntensity = intensity;
+  for _, child in ipairs(room.children) do
+    if conditions.implies(room.condition, child.condition) then
+        maxIntensity = math.max(
+          maxIntensity,
+          applyIntensity(
+            child,
+            intensity + 1.0,
+            constraints
+          )
+        );
+    end
+  end
+
+  return maxIntensity;
+end
+
+-- Scales intensities within the dungeon down so that they all fit within
+-- the range 0 <= intensity < 1.0.
+local function normalizeIntensity(dungeon)
+  local maxIntensity = 0.0;
+  for _, room in ipairs(dungeon) do
+    maxIntensity = math.max(maxIntensity, room.intensity);
+  end
+  for _, room in ipairs(dungeon) do
+    room.intensity = (room.intensity * 0.99 / maxIntensity);
+  end
+  return dungeon
+end
+
+local function computeIntensity(constraints, dungeon)
+  local nextLevelBaseIntensity = 0.0;
+  for keyLevel = 0, keyCount(dungeon) do
+
+    local intensity = nextLevelBaseIntensity *
+    (1.0 - constraints.intensityEaseOff)
+
+    for _, room in ipairs(getRoomsFromKeyLevel(dungeon, keyLevel)) do
+      if (room.parent == nil or
+        not conditions.implies(room.parent.condition, room.condition)) then
+        nextLevelBaseIntensity = math.max(
+          nextLevelBaseIntensity,
+          applyIntensity(room, intensity, constraints));
+      end
+    end
+  end
+
+  dungeon = normalizeIntensity(dungeon);
+
+  findRoomWithItem("boss", dungeon).intensity = 1.0
+  local goalRoom = findRoomWithItem("goal", dungeon);
+  if (goalRoom ~= nil) then
+    goalRoom.intensity = 0.0
   end
   
   return dungeon
@@ -454,7 +526,7 @@ local function generateHelper (constraints)
     end
   end
 
-  dungeon = placeBossGoalRooms(dungeon, constraints);
+  dungeon = placeBossGoalRooms(constraints, dungeon);
 
 --  Place switch and the locks that require it:
   dungeon = placeSwitches(constraints, dungeon)
@@ -462,7 +534,7 @@ local function generateHelper (constraints)
 --  Make the dungeon less tree-like:
   dungeon = graphify(constraints, dungeon)
 
---  computeIntensity(levels);
+  dungeon = computeIntensity(constraints, dungeon)
 
 --  -- Place the keys within the dungeon:
 --  placeKeys(levels);
