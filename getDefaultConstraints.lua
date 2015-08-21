@@ -1,6 +1,14 @@
 local push = table.insert
 
-local function getDefaultConstraints()
+--options is optional
+
+-- By default, keys are placed in higher intensity rooms where available.
+-- Alternatively, set options.edgeCount to put keys at 'dead end' rooms
+-- where available
+
+local function getDefaultConstraints(options)
+  options = options or {}
+  
   local constraints = {}
 
   constraints.isBossRoomLocked = true
@@ -48,6 +56,16 @@ local function getDefaultConstraints()
     return 0.2
   end
 
+  if options.edgeCount then
+    constraints.keyChanceSorter = function(room1, room2)
+      return #room1.edges < #room2.edges
+    end
+  else
+    constraints.keyChanceSorter = function(room1, room2)
+      return room1.intensity > room2.intensity
+    end
+  end
+  
   return constraints
 end
 

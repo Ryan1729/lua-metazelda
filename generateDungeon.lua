@@ -36,12 +36,12 @@ local function keyCount(dungeon)
   local seenAlready = Set{}
 
   for _, v in ipairs(dungeon) do
-    if not seenAlready[v.keyLevel] then
-      seenAlready = seenAlready + Set{v.keyLevel}
+    if not seenAlready[v.condition.keyLevel] then
+      seenAlready = seenAlready + Set{v.condition.keyLevel}
     end
   end
 
-  return Set:len(seenAlready)
+  return Set.len(seenAlready)
 end
 
 local function getRoomsFromKeyLevel(dungeon, keyLevel)
@@ -110,7 +110,7 @@ local function chooseRoomWithFreeEdge(roomList, constraints, dungeon)
   return nil
 end
 
-local function placeRooms(dungeon, constraints, levels, roomsPerLock)
+local function placeRooms(dungeon, constraints, roomsPerLock)
   local keyLevel = 0
   local latestKey = 0
   local condition = conditions.make()
@@ -163,7 +163,6 @@ local function placeRooms(dungeon, constraints, levels, roomsPerLock)
     rooms.addChild(parentRoom, room)
     rooms.link(parentRoom, room, doLock and conditions.make(latestKey) or nil);
 
-    --levels.addRoom(keyLevel, room);
   end
 
   return true, dungeon 
@@ -494,6 +493,46 @@ local function computeIntensity(constraints, dungeon)
   return dungeon
 end
 
+local function placeKeys(constraints, dungeon)
+  -- Now place the keys. For every key-level but the last one, place a
+  -- key for the next level in it.
+  
+  local highestKeyToPlace = keyCount(dungeon) - 1
+  
+  --if there is only one key level (0), then don't place any keys
+  if highestKeyToPlace > 0 then
+  
+  -- 0 is a valid key
+    for keyLevel = 0, highestKeyToPlace do
+      
+      local rooms = tablex.copy(getRoomsFromKeyLevel(dungeon, keyLevel));
+      
+      shuffleTable(rooms)
+      -- table.sort is unstable: it may reorder "equal" elements,
+      -- but AFAIK it is still deterministic: the same input always
+      -- produces the same output so the shuffling we just did does
+      -- still affect the final ordering.
+      table.sort(rooms, constraints.keyChanceSorter)
+      
+      local placedKey = false;
+      for _, room in ipairs(rooms) do
+        if (room.item == nil and constraints.roomCanFitItem(room.id, keyLevel)) then
+          room.item = keyLevel
+          placedKey = true
+          break;
+        end
+      end
+      
+      if (not placedKey) then
+        error("there were no rooms into which the key would fit!")
+      end
+    end
+    
+  end
+  
+  return dungeon
+end
+
 local function generateHelper (constraints)
   local dungeon
 
@@ -512,7 +551,7 @@ local function generateHelper (constraints)
     -- Create the entrance to the dungeon:
     dungeon = addRoom(dungeon, getEntranceRoom(constraints))
 
-    roomsPlaced, dungeon = placeRooms(dungeon, constraints, levels, roomsPerLock)
+    roomsPlaced, dungeon = placeRooms(dungeon, constraints, roomsPerLock)
 
     if not roomsPlaced then 
       --We can run out of rooms when the constraints are too tight
@@ -536,12 +575,13 @@ local function generateHelper (constraints)
 
   dungeon = computeIntensity(constraints, dungeon)
 
---  -- Place the keys within the dungeon:
---  placeKeys(levels);
+  -- Place the keys within the dungeon:
+  dungeon = placeKeys(constraints, dungeon)
 
---  if (levels.keyCount()-1 != constraints.getMaxKeys())
---    throw new RetryException();
-
+  -- 0 is a valid key level
+  if (keyCount(dungeon) - 1 ~= constraints.maxKeys) then
+    error("Did not use all possible keys!")
+  end
 
   if (not constraints.isAcceptable) or constraints.isAcceptable(dungeon) then
     return dungeon
