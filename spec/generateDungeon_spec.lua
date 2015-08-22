@@ -62,7 +62,6 @@ describe("generateDungeon tests", function()
     end)
     
   end)
-  
 
   local fourWayDungeon = generateDungeon(getConstraints({fourWayAdjacency= true}))
     
