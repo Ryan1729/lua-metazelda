@@ -5,6 +5,8 @@ requires [Penlight](https://github.com/stevedonovan/Penlight)
 
 Still WIP
 
+
+
 # Usage
 
 ## requiring
@@ -19,4 +21,7 @@ uses the [current_folder](http://kiki.to/blog/2014/04/12/rule-5-beware-of-multip
 * constraints: override the default constraints object
 * seed: set a seed for the dungeon to be generated from (uses os.time() otherwise)
 
-
+```lua
+-- a dungeon using the default constraints
+local defaultDungeon = generateDungeon()
+```

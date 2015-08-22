@@ -3,7 +3,7 @@ local Set = require("pl.Set")
 local current_folder = (...):gsub('%.[^%.]+$', '')
 local rooms = require(current_folder .. ".rooms")
 local conditions = require(current_folder .. ".conditions")
-local getDefaultConstraints = require(current_folder .. ".getDefaultConstraints")
+local getConstraints = require(current_folder .. ".getConstraints")
 
 local push = table.insert
 
@@ -594,7 +594,7 @@ local function generateHelper (constraints)
 end
 
 local function generateDungeon (constraints, seed)
-  constraints = constraints or getDefaultConstraints()
+  constraints = constraints or getConstraints()
 
   seed = seed or os.time()
 
