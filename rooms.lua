@@ -1,5 +1,6 @@
 local tablex = require("pl.tablex")
-local conditions = require("lua-metazelda.conditions")
+local current_folder = (...):gsub('%.[^%.]+$', '')
+local conditions = require(current_folder .. ".conditions")
 local rooms = {}
 
 local push = table.insert

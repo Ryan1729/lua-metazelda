@@ -1,10 +1,13 @@
 local tablex = require("pl.tablex")
 local Set = require("pl.Set")
-local rooms = require("lua-metazelda.rooms")
-local conditions = require("lua-metazelda.conditions")
-local getDefaultConstraints = require("lua-metazelda.getDefaultConstraints")
+local current_folder = (...):gsub('%.[^%.]+$', '')
+local rooms = require(current_folder .. ".rooms")
+local conditions = require(current_folder .. ".conditions")
+local getDefaultConstraints = require(current_folder .. ".getDefaultConstraints")
 
 local push = table.insert
+
+
 
 local function getEntranceRoom(constraints)
   -- pick one of the possible initial rooms and
