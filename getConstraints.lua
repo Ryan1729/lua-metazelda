@@ -31,8 +31,10 @@ local function getConstraints(options)
   
   local constraints = {}
 
-  constraints.isBossRoomLocked = options.isBossRoomLocked or true
-  constraints.generateGoal = options.generateGoal or true
+--  constraints.isBossRoomLocked = true
+--  constraints.generateGoal = true
+  constraints.isBossRoomLocked = options.isBossRoomLocked ~= false and true or false
+  constraints.generateGoal = options.generateGoal ~= false and true or false
   constraints.maxKeys = options.maxKeys or 0
   constraints.maxRooms = options.maxRooms or 42
   constraints.maxRetries = options.maxRetries or 10
