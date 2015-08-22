@@ -278,9 +278,15 @@ end
 
 --Returns a path from the goal to the dungeon entrance, along the 'parent'
 --relations.
-local function getSolutionPath(dungeon)
+local function getSolutionPath(constraints, dungeon)
   local solution = {};
-  local room = findRoomWithItem("goal", dungeon)
+  local room 
+  if constraints.generateGoal then
+    room = findRoomWithItem("goal", dungeon)
+  else
+    room = findRoomWithItem("boss", dungeon)
+  end
+  
   while (room ~= nil) do
     push(solution, room)
     room = room.parent;
@@ -342,7 +348,7 @@ local function placeSwitches(constraints, dungeon)
     return dungeon
   end
 
-  local solution = getSolutionPath(dungeon);
+  local solution = getSolutionPath(constraints, dungeon);
 
   for attempt = 1, 10 do
 

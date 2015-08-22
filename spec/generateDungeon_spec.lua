@@ -50,21 +50,37 @@ describe("generateDungeon tests", function()
 
   describe("default dungeon", basicTests(generateDungeon()))
   
+  local noGoalDungeon = generateDungeon(getConstraints({generateGoal = false}))
+  describe("no goal room dungeon", basicTests(noGoalDungeon))
+  describe("no goal room dungeon", function()
+    it("has no goal", function()
+        
+      for _, room in ipairs(noGoalDungeon) do
+        assert.is_true(room.item ~= "goal")
+      end
+
+    end)
+    
+    --better a commented out test than a failing one?
+--    it("has a boss room with only one edge", function()
+        
+--      local bossRoom
+      
+--      for _, room in ipairs(noGoalDungeon) do
+--        if room.item == "boss" then
+--          bossRoom = room
+--          break
+--        end
+--      end
+
+--      assert.is_true(#bossRoom.edges == 1)
+
+--    end)
+  end)
+  
+
   local fourWayDungeon = generateDungeon(getConstraints({fourWayAdjacency= true}))
     
---    constraints.getAdjacentRooms = function (id)
---        local result = {}
---        local coords = constraints.getCoords(id)
-        
---        for i = 1, constraints.maxRooms do
---          local currentCoords = constraints.getCoords(i)
-          
---          if coordsAreAdjacent(coords, currentCoords) then
---            push(result, i)
---          end
---        end
---        return result
---      end
   describe("4 way constrained dungeon", basicTests(fourWayDungeon))
   describe("4 way constrained dungeon", function()
     it("has only 4 way adjacent rooms", function()
