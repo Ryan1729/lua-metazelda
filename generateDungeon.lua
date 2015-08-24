@@ -234,7 +234,7 @@ local function placeBossGoalRooms (constraints, dungeon)
   if constraints.isBossRoomLocked then
     local newKeyLevel = math.min(keyLevelCount(dungeon) + 1, constraints.maxKeys)
 
-    local bossKey = conditions.make(newKeyLevel-1)
+    local bossKey = conditions.make(newKeyLevel)
     local precond = conditions.add(bossRoom.condition, bossKey);
     bossRoom.condition = precond
     if goalRoom ~= nil then
@@ -244,11 +244,11 @@ local function placeBossGoalRooms (constraints, dungeon)
     if newKeyLevel == 0 then
       rooms.link(bossRoom.parent, bossRoom)
     else
-      rooms.link(bossRoom.parent, bossRoom, bossKey)
+      rooms.link(bossRoom.parent, bossRoom, precond)
     end
 
     if goalRoom ~= nil then
-      rooms.link(bossRoom, goalRoom);
+      rooms.link(bossRoom, goalRoom, precond);
     end
 
   end
@@ -516,10 +516,14 @@ local function placeKeys(constraints, dungeon)
       
       local placedKey = false;
       for _, room in ipairs(rooms) do
-        if (room.item == nil and constraints.roomCanFitItem(room.id, keyLevel)) then
-          room.item = keyLevel
-          placedKey = true
-          break;
+        if (constraints.roomCanFitItem(room.id, keyLevel)) then
+          if room.item == nil or (room.item == "boss" and constraints.isBossRoomLocked) then
+            if room.item == nil then
+              room.item = keyLevel
+            end
+            placedKey = true
+            break
+          end
         end
       end
       
@@ -582,9 +586,8 @@ local function generateHelper (constraints)
   -- Place the keys within the dungeon:
   dungeon = placeKeys(constraints, dungeon)
 
-  -- 0 is a valid key level
-  --TODO:
---  if (keyCount(dungeon) - 1 ~= constraints.maxKeys) then
+  -- 0 is a valid keyLevel but not a valid key
+--  if (keyLevelCount(dungeon) - 1 ~= constraints.maxKeys) then
 --    error("Did not use all possible keys!")
 --  end
 
