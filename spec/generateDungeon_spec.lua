@@ -43,12 +43,52 @@ local basicTests = function(dungeon)
         assert.is_true(type(room.condition.switchState) == "string")
       end
     end)
+  
   end
+end
+
+local function goalRoomTest(dungeon)
+  it("has one goal room with only one edge", function()
+    local goalRoom = nil
+    for _, room in ipairs(dungeon) do
+      if room.item == "goal" then
+        if goalRoom == nil then
+          goalRoom = room
+        else
+          error("multiple goals")
+        end
+      end
+    end
+    
+    assert.are.equal(1, #goalRoom.edges)
+  end)
 end
 
 describe("generateDungeon tests", function()
 
-  describe("default dungeon", basicTests(generateDungeon()))
+  local defaultDungeon = generateDungeon()
+  describe("default dungeon", basicTests(defaultDungeon))
+  describe("default dungeon", goalRoomTest(defaultDungeon))
+  
+  local maxKeys = 10
+  local tenKeyDungeon = generateDungeon(getConstraints({maxKeys = maxKeys}))
+  describe("ten Key dungeon", basicTests(tenKeyDungeon))
+  describe("ten Key dungeon", goalRoomTest(tenKeyDungeon))
+  describe("ten Key dungeon", function()
+    it("has a level ten key", function()
+      
+      local highestSeenKey = 0
+      for _, room in ipairs(tenKeyDungeon) do
+        if (room.condition.keyLevel > highestSeenKey) then
+          highestSeenKey = room.condition.keyLevel
+        end
+      end
+      
+      assert.are.equal(maxKeys, highestSeenKey)
+      
+    end)
+    
+  end)
   
   local noGoalDungeon = generateDungeon(getConstraints({generateGoal = false}))
   describe("no goal room dungeon", basicTests(noGoalDungeon))
@@ -66,6 +106,7 @@ describe("generateDungeon tests", function()
   local fourWayDungeon = generateDungeon(getConstraints({fourWayAdjacency= true}))
     
   describe("4 way constrained dungeon", basicTests(fourWayDungeon))
+  describe("4 way constrained dungeon", goalRoomTest(fourWayDungeon))
   describe("4 way constrained dungeon", function()
     it("has only 4 way adjacent rooms", function()
         

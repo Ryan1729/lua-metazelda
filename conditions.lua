@@ -17,9 +17,7 @@ end
 local getCombinedKeyLevel= math.max
 
 function conditions.addKeyLevel(condition, keyLevel)
-  condition.keyLevel = getCombinedKeyLevel(condition.keyLevel, keyLevel)
-  
-  return condition
+  return conditions.make(getCombinedKeyLevel(condition.keyLevel, keyLevel), condition.switchState)
 end
 
 function conditions.add(condition1, condition2) 

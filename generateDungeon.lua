@@ -34,7 +34,7 @@ local function getRoomFromDungeon(dungeon, roomId)
   return nil
 end
 
-local function keyCount(dungeon)
+local function keyLevelCount(dungeon)
   --might be an idea to keep a copy of this, rather than having to make it each time
   local seenAlready = Set{}
 
@@ -99,7 +99,7 @@ local function chooseRoomWithFreeEdge(roomList, constraints, dungeon)
   --since rooms reference other rooms cyclically,
   --a deep copy causes a stack overflow
   local rooms = tablex.copy(roomList)
-
+print("#rooms", #rooms)
   shuffleTable(rooms)
 
   --this assumes the roomList is an array
@@ -115,7 +115,6 @@ end
 
 local function placeRooms(dungeon, constraints, roomsPerLock)
   local keyLevel = 0
-  local latestKey = 0
   local condition = conditions.make()
 
   local usableKeys = constraints.maxKeys
@@ -131,32 +130,33 @@ local function placeRooms(dungeon, constraints, roomsPerLock)
     -- Decide whether we need to place a new lock
     -- (Don't place the last lock, since that's reserved for the boss)
     if #getRoomsFromKeyLevel(dungeon, keyLevel) >= roomsPerLock and keyLevel < usableKeys then
-      latestKey = keyLevel
       keyLevel = keyLevel + 1
-      condition = conditions.addKeyLevel(condition, latestKey)
+      
       doLock = true
     end
 
     -- Find an existing room with a free edge:
     local parentRoom = nil
-    if not doLock and math.random(10) > 1 then
+    if (not doLock) and math.random(10) > 1 then
       parentRoom = chooseRoomWithFreeEdge(getRoomsFromKeyLevel(dungeon, keyLevel), constraints, dungeon)
     end
 
     if parentRoom == nil then
-      parentRoom = chooseRoomWithFreeEdge(getRoomsFromKeyLevel(dungeon, keyLevel), constraints, dungeon)
-      doLock = true;
+      --rememeber that "dungeon" is a list of rooms
+      parentRoom = chooseRoomWithFreeEdge(dungeon, constraints, dungeon)
+      doLock = true
     end
+
+    print("parentRoom check", type(parentRoom), doLock)
 
     if parentRoom == nil then
       error("no free edge found!")
-      --return false, dungeon
     end
 
     -- Decide which direction to put the new room in relative to the
     -- parent
     local nextId = chooseFreeEdge(parentRoom, constraints, dungeon)
-    local room = rooms.make(nextId, constraints.getCoords(nextId), parentRoom, nil, condition)
+    local room = rooms.make(nextId, constraints.getCoords(nextId), parentRoom, nil, conditions.make(keyLevel))
 
     -- Add the room to the dungeon
     assert (getRoomFromDungeon(dungeon, room.id) == nil, "room already used!")
@@ -164,11 +164,11 @@ local function placeRooms(dungeon, constraints, roomsPerLock)
     dungeon = addRoom(dungeon, room)
     assert(type(room.condition) == "table")
     rooms.addChild(parentRoom, room)
-    rooms.link(parentRoom, room, doLock and conditions.make(latestKey) or nil);
+    rooms.link(parentRoom, room, doLock and conditions.make(keyLevel) or nil)
 
   end
 
-  return true, dungeon 
+  return dungeon 
 end
 
 local function roomIsNotEmpty(room, parent)
@@ -232,17 +232,7 @@ local function placeBossGoalRooms (constraints, dungeon)
   bossRoom.item = "boss"
 
   if constraints.isBossRoomLocked then
-    --local oldKeyLevel = bossRoom.condition.keyLevel
-    local newKeyLevel = math.min(keyCount(dungeon), constraints.maxKeys)
-
---    local oldKeyLevelRooms = getRoomsFromKeyLevel(dungeon, oldKeyLevel)
---    if goalRoom ~= nil then
---      oldKeyLevelRooms.remove(goalRoom)
---    end
---    oldKeyLevelRooms.remove(bossRoom);
-
---    if goalRoom ~= nil levels.addRoom(newKeyLevel, goalRoom);
---    levels.addRoom(newKeyLevel, bossRoom);
+    local newKeyLevel = math.min(keyLevelCount(dungeon) + 1, constraints.maxKeys)
 
     local bossKey = conditions.make(newKeyLevel-1)
     local precond = conditions.add(bossRoom.condition, bossKey);
@@ -368,7 +358,6 @@ local function placeSwitches(constraints, dungeon)
     if baseRoom == nil then
       error("no base room found in placeSwitches")
     end
---    Condition baseRoomCond = baseRoom.getPrecond();
 
     local potentialSwitchRooms = removeDescendantsFromList(rooms, baseRoom);
 
@@ -392,18 +381,22 @@ local function placeSwitches(constraints, dungeon)
   error("took too many tries to place switches")
 end
 
+local function isRoomGoalOrBoss(room)
+  return room.item == "goal" or room.item == "boss"
+end
+
 local function graphify(constraints, dungeon)
 
   for _, room in ipairs(dungeon) do
-    if not (room.item == "goal" or room.item == "boss") then
+    if not isRoomGoalOrBoss(room) then
 
       for k, nextId in ipairs(constraints.getAdjacentRooms(room.id)) do
 
         local nextRoom = getRoomFromDungeon(dungeon, nextId)
-        if not (rooms.getEdge(room, nextId) ~= nil or nextRoom == nil or room.item == "goal" or room.item == "boss") then
+        if not (rooms.getEdge(room, nextId) ~= nil or nextRoom == nil or isRoomGoalOrBoss(nextRoom)) then
 
           local forwardImplies = conditions.implies(room.condition, nextRoom.condition)
-          local backwardImplies =conditions.implies(nextRoom.condition, room.condition)
+          local backwardImplies = conditions.implies(nextRoom.condition, room.condition)
           if (forwardImplies and backwardImplies) then
             --this implies both rooms are at the same keyLevel.
             if (math.random() < constraints.edgeGraphifyProbability(room.id, nextRoom.id)) then
@@ -476,7 +469,7 @@ end
 
 local function computeIntensity(constraints, dungeon)
   local nextLevelBaseIntensity = 0.0;
-  for keyLevel = 0, keyCount(dungeon) do
+  for keyLevel = 0, keyLevelCount(dungeon) do
 
     local intensity = nextLevelBaseIntensity *
     (1.0 - constraints.intensityEaseOff)
@@ -506,15 +499,13 @@ local function placeKeys(constraints, dungeon)
   -- Now place the keys. For every key-level but the last one, place a
   -- key for the next level in it.
   
-  local highestKeyToPlace = keyCount(dungeon) - 1
-  
   --if there is only one key level (0), then don't place any keys
-  if highestKeyToPlace > 0 then
+  if keyLevelCount(dungeon) > 1 then
   
-  -- 0 is a valid key
-    for keyLevel = 0, highestKeyToPlace do
+  -- 0 is not a valid key
+    for keyLevel = 1, keyLevelCount(dungeon) do
       
-      local rooms = tablex.copy(getRoomsFromKeyLevel(dungeon, keyLevel));
+      local rooms = tablex.copy(getRoomsFromKeyLevel(dungeon, keyLevel - 1));
       
       shuffleTable(rooms)
       -- table.sort is unstable: it may reorder "equal" elements,
@@ -533,7 +524,7 @@ local function placeKeys(constraints, dungeon)
       end
       
       if (not placedKey) then
-        error("there were no rooms into which the key would fit!")
+        error("there were no rooms into which the key would fit! rooms length = " .. #rooms)
       end
     end
     
@@ -548,7 +539,7 @@ local function generateHelper (constraints)
   local roomsPerLock
 
   if constraints.maxKeys > 0 then
-    roomsPerLock = constraints.maxRooms / constraints.maxKeys
+    roomsPerLock = math.floor(constraints.maxRooms / constraints.maxKeys)
   else
     roomsPerLock = constraints.maxRooms;
   end
@@ -560,9 +551,13 @@ local function generateHelper (constraints)
     -- Create the entrance to the dungeon:
     dungeon = addRoom(dungeon, getEntranceRoom(constraints))
 
-    roomsPlaced, dungeon = placeRooms(dungeon, constraints, roomsPerLock)
+    local potentialDungeon = nil
 
-    if not roomsPlaced then 
+    roomsPlaced, potentialDungeon = pcall(placeRooms, dungeon, constraints, roomsPerLock)
+    
+    if roomsPlaced then
+      dungeon = potentialDungeon
+    else
       --We can run out of rooms when the constraints are too tight
       print("Ran out of rooms. roomsPerLock was " .. roomsPerLock)
       roomsPerLock = math.floor( roomsPerLock * constraints.getMaxKeys / constraints.getMaxKeys + 1 )
@@ -588,9 +583,10 @@ local function generateHelper (constraints)
   dungeon = placeKeys(constraints, dungeon)
 
   -- 0 is a valid key level
-  if (keyCount(dungeon) - 1 ~= constraints.maxKeys) then
-    error("Did not use all possible keys!")
-  end
+  --TODO:
+--  if (keyCount(dungeon) - 1 ~= constraints.maxKeys) then
+--    error("Did not use all possible keys!")
+--  end
 
   if (not constraints.isAcceptable) or constraints.isAcceptable(dungeon) then
     return dungeon

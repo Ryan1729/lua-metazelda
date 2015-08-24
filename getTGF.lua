@@ -5,14 +5,14 @@ local function getTGF(dungeon)
   local result = ""
   
   for _, room in ipairs(dungeon) do
-    result = result .. "v" .. room.id .. " " .. room.id .. "\n"
+    result = result .. "v" .. room.id .. " " .. room.id .. "," .. (room.item or "") .. "\n"
   end
   
   result = result .. "#\n"
   
   for _, room in ipairs(dungeon) do
     for _, edge in ipairs(room.edges) do
-      result = result .. "v" .. room.id .. " v" .. edge.targetRoomId .. "\n"
+      result = result .. "v" .. room.id .. " v" .. edge.targetRoomId .. " " .. edge.condition.keyLevel .. "\n"
     end
   end
   
