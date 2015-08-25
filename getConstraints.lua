@@ -21,6 +21,10 @@ local push = table.insert
 -- getAdjacentRooms (default nil): if this value is truthy it is assumed to be a function and 
 -- it will be used instead of the default getAdjacentRooms function which considers all other
 -- rooms to be adjacent to every room in the dungeon
+-- isAcceptable (default nil): if this value is truthy it is assumed to be a function and 
+-- it will be used after the dungeon is completed to check any additional constraints. The
+--funtion should return true if the passed in dungeon is acceptable and false otherwise
+
 
 -- edgeCount (default false): By default, keys are placed in higher intensity rooms 
 --  where available. Alternatively, set options.edgeCount to true to put keys at 
@@ -31,8 +35,6 @@ local function getConstraints(options)
   
   local constraints = {}
 
---  constraints.isBossRoomLocked = true
---  constraints.generateGoal = true
   constraints.isBossRoomLocked = options.isBossRoomLocked ~= false and true or false
   constraints.generateGoal = options.generateGoal ~= false and true or false
   constraints.maxKeys = options.maxKeys or 0
@@ -98,8 +100,12 @@ local function getConstraints(options)
   end
   
   --check any additional constraints
-  function constraints.isAcceptable(dungeon)
-    return math.random(1,10) > 3--true
+  if options.isAcceptable then
+    constraints.isAcceptable = options.isAcceptable
+  else
+    function constraints.isAcceptable(dungeon)
+      return true
+    end
   end
 
   function constraints.edgeGraphifyProbability(id, nextId) 

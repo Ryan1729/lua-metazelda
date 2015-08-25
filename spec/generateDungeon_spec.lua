@@ -121,5 +121,32 @@ describe("generateDungeon tests", function()
     end)
   end)
 
+  local bossUnlockedDungeon = generateDungeon(getConstraints({isBossRoomLocked = false}))
+    
+  describe("boss Unlocked dungeon", basicTests(bossUnlockedDungeon))
+  describe("boss Unlocked dungeon", goalRoomTest(bossUnlockedDungeon))
+
+  local rejectAtLeastOnce = (function()
+    local timesRan = 0
+    
+    return function()
+      timesRan = timesRan + 1
+      
+      if timesRan <= 1 then 
+        return false
+      else
+        -- make it more and more likely to finally accept
+        return math.random(1, timesRan) > 1
+      end
+      
+    end
+    
+  end)()
+  
+  local rejectedDungeon = generateDungeon(getConstraints({isAcceptable = rejectAtLeastOnce}))
+    
+  describe("rejected dungeon", basicTests(rejectedDungeon))
+  describe("rejected dungeon", goalRoomTest(rejectedDungeon))
+
 
 end)

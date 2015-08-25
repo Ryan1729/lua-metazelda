@@ -99,7 +99,7 @@ local function chooseRoomWithFreeEdge(roomList, constraints, dungeon)
   --since rooms reference other rooms cyclically,
   --a deep copy causes a stack overflow
   local rooms = tablex.copy(roomList)
-print("#rooms", #rooms)
+
   shuffleTable(rooms)
 
   --this assumes the roomList is an array
@@ -119,6 +119,7 @@ local function placeRooms(dungeon, constraints, roomsPerLock)
 
   local usableKeys = constraints.maxKeys
   if constraints.isBossRoomLocked then
+    -- (Don't place the last lock, since that's reserved for the boss)
     usableKeys = usableKeys - 1
   end
 
@@ -128,7 +129,6 @@ local function placeRooms(dungeon, constraints, roomsPerLock)
     local doLock = false;
 
     -- Decide whether we need to place a new lock
-    -- (Don't place the last lock, since that's reserved for the boss)
     if #getRoomsFromKeyLevel(dungeon, keyLevel) >= roomsPerLock and keyLevel < usableKeys then
       keyLevel = keyLevel + 1
       
@@ -146,8 +146,6 @@ local function placeRooms(dungeon, constraints, roomsPerLock)
       parentRoom = chooseRoomWithFreeEdge(dungeon, constraints, dungeon)
       doLock = true
     end
-
-    print("parentRoom check", type(parentRoom), doLock)
 
     if parentRoom == nil then
       error("no free edge found!")
@@ -537,6 +535,13 @@ local function placeKeys(constraints, dungeon)
   return dungeon
 end
 
+-- after placeRooms finishes we expect one less keyLevel to be used if constraints.isBossRoomLocked
+local function expectedKeyLevelsUsed(dungeon, constraints)
+  return (keyLevelCount(dungeon) == constraints.maxKeys and constraints.isBossRoomLocked)
+    or (keyLevelCount(dungeon) - 1 == constraints.maxKeys and not constraints.isBossRoomLocked)
+    or (keyLevelCount(dungeon) == 1 and constraints.maxKeys == 0)
+end
+
 local function generateHelper (constraints)
   local dungeon
 
@@ -559,12 +564,13 @@ local function generateHelper (constraints)
 
     roomsPlaced, potentialDungeon = pcall(placeRooms, dungeon, constraints, roomsPerLock)
     
-    if roomsPlaced then
+    if roomsPlaced and expectedKeyLevelsUsed(potentialDungeon, constraints) then
       dungeon = potentialDungeon
     else
+      roomsPlaced = false
       --We can run out of rooms when the constraints are too tight
       print("Ran out of rooms. roomsPerLock was " .. roomsPerLock)
-      roomsPerLock = math.floor( roomsPerLock * constraints.getMaxKeys / constraints.getMaxKeys + 1 )
+      roomsPerLock = math.floor( roomsPerLock * (constraints.maxKeys / (constraints.maxKeys + 1)) )
       print("roomsPerLock is now " .. roomsPerLock)
 
       if roomsPerLock <= 0 then
@@ -587,9 +593,9 @@ local function generateHelper (constraints)
   dungeon = placeKeys(constraints, dungeon)
 
   -- 0 is a valid keyLevel but not a valid key
---  if (keyLevelCount(dungeon) - 1 ~= constraints.maxKeys) then
---    error("Did not use all possible keys!")
---  end
+  if (keyLevelCount(dungeon) - 1 ~= constraints.maxKeys) then
+    error("Did not use all possible keys!")
+  end
 
   if (not constraints.isAcceptable) or constraints.isAcceptable(dungeon) then
     return dungeon
