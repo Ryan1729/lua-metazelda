@@ -25,7 +25,9 @@ local push = table.insert
 -- it will be used after the dungeon is completed to check any additional constraints. The
 --funtion should return true if the passed in dungeon is acceptable and false otherwise
 
-
+-- roomsPerRow (default 6): This determines how many rooms are placed in a single row
+--  that is, how many rooms will have coordinates with the same y value before y is increased.
+--  these coordinates affect which rooms are considered ajacent if fourWayAdjaceny is true
 -- edgeCount (default false): By default, keys are placed in higher intensity rooms 
 --  where available. Alternatively, set options.edgeCount to true to put keys at 
 --  'dead end' rooms where available
@@ -46,11 +48,12 @@ local function getConstraints(options)
 
   constraints.initialRooms = {1, 2, 3}
 
+  local roomsPerRow = options.roomsPerRow or 6
   function constraints.getCoords(id)
     local result = {}
 
-    result.x = id % 6
-    result.y = math.floor(id / 7) + 1
+    result.x = id % roomsPerRow
+    result.y = math.floor(id / roomsPerRow) + 1
 
     return result
   end

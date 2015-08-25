@@ -1,11 +1,15 @@
 --convert the dungeon to Trivial Graph Format
 --for debugging purposes only
-local function getTGF(dungeon)
+
+-- options.coords: if true then coords will be shown on the node label rather
+--  than the item number
+local function getTGF(dungeon, options)
   --might be broken by changes to dungeon format
   local result = ""
   
   for _, room in ipairs(dungeon) do
-    result = result .. "v" .. room.id .. " " .. room.id .. "," .. (room.item or "") .. "\n"
+    local nodeData = options.coords and "(" .. room.coords.x .. ", " .. room.coords.y .. ")" or (room.item or "")
+    result = result .. "v" .. room.id .. " " .. room.id .. "," .. nodeData .. "\n"
   end
   
   result = result .. "#\n"

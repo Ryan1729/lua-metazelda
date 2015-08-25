@@ -64,6 +64,32 @@ local function goalRoomTest(dungeon)
   end)
 end
 
+local function fourWayTests(fourWayDungeon)
+  return function()
+    it("has only 4 way adjacent rooms", function()
+        
+      for _, room in ipairs(fourWayDungeon) do
+        for _, edge in ipairs(room.edges) do
+          local targetRoomCoords = getRoomFromDungeon(fourWayDungeon, edge.targetRoomId).coords
+          
+          assert.is_true(coordsAreAdjacent(room.coords, targetRoomCoords))
+        end
+      end
+
+    end)
+
+    it("has at most 4 edges per room", function()
+        
+      for _, room in ipairs(fourWayDungeon) do
+        
+        assert.is_true(#room.edges <= 4)
+        
+      end
+
+    end)
+  end
+end
+
 describe("generateDungeon tests", function()
 
   local defaultDungeon = generateDungeon()
@@ -107,19 +133,14 @@ describe("generateDungeon tests", function()
     
   describe("4 way constrained dungeon", basicTests(fourWayDungeon))
   describe("4 way constrained dungeon", goalRoomTest(fourWayDungeon))
-  describe("4 way constrained dungeon", function()
-    it("has only 4 way adjacent rooms", function()
-        
-      for _, room in ipairs(fourWayDungeon) do
-        for _, edge in ipairs(room.edges) do
-          local targetRoomCoords = getRoomFromDungeon(fourWayDungeon, edge.targetRoomId).coords
-          
-          assert.is_true(coordsAreAdjacent(room.coords, targetRoomCoords))
-        end
-      end
+  describe("4 way constrained dungeon", fourWayTests(fourWayDungeon))
 
-    end)
-  end)
+--this dungeon once was the only known case where a problem occured
+  local problemFourWayDungeon = generateDungeon(getConstraints({fourWayAdjacency = true}), 1234)
+  
+  describe("problem 4 way constrained dungeon", basicTests(problemFourWayDungeon))
+  describe("problem 4 way constrained dungeon", goalRoomTest(problemFourWayDungeon))
+  describe("problem 4 way constrained dungeon", fourWayTests(problemFourWayDungeon))
 
   local bossUnlockedDungeon = generateDungeon(getConstraints({isBossRoomLocked = false}))
     
