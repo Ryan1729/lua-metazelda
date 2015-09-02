@@ -52,13 +52,14 @@ local function getConstraints(options)
   local coordsResults = {}
   setmetatable(coordsResults, {__mode = "v"})  -- make values weak, see http://www.lua.org/pil/17.1.html
   function constraints.getCoords(id)
+    id = id - 1 --another argument for zero indexing
     if coordsResults[id] then      -- result available?
       return coordsResults[id]     -- reuse it
     else
       local result = {}
 
       result.x = id % roomsPerRow
-      result.y = math.floor(id / roomsPerRow) + 1
+      result.y = math.floor(id / roomsPerRow)
       
       coordsResults[id] = result
       
