@@ -49,13 +49,21 @@ local function getConstraints(options)
   constraints.initialRooms = {1, 2, 3}
 
   local roomsPerRow = options.roomsPerRow or 6
+  local coordsResults = {}
+  setmetatable(coordsResults, {__mode = "v"})  -- make values weak, see http://www.lua.org/pil/17.1.html
   function constraints.getCoords(id)
-    local result = {}
+    if coordsResults[id] then      -- result available?
+      return coordsResults[id]     -- reuse it
+    else
+      local result = {}
 
-    result.x = id % roomsPerRow
-    result.y = math.floor(id / roomsPerRow) + 1
-
-    return result
+      result.x = id % roomsPerRow
+      result.y = math.floor(id / roomsPerRow) + 1
+      
+      coordsResults[id] = result
+      
+      return result
+    end
   end
   
   
