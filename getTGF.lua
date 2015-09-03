@@ -5,6 +5,8 @@
 --  than the item number
 local function getTGF(dungeon, options)
   --might be broken by changes to dungeon format
+  options = options or {}
+  
   local result = ""
   
   for _, room in ipairs(dungeon) do
