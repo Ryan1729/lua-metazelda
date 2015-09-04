@@ -6,6 +6,9 @@ local push = table.insert
 -- isBossRoomLocked (default true): controls whether the boss room requires a key or not
 -- generateGoal (default true): controls whether a final room after the boss is generated or not
 -- maxKeys (default 0): the amount of keys (and therefore types of locks) that are generated
+-- maxSwitches (default 0): if this is greater than 0, **a single** switch which toggles some special doors
+--  between two states will placed in **one** room. This behaviour is also present in the version of tcoxon's 
+--  metazelda that this is a port of.
 -- maxRooms (default 42): the total number of rooms that can be generated
 -- maxRetries (default 10): the number of retries before a dungeon generation failure
 
@@ -40,6 +43,7 @@ local function getConstraints(options)
   constraints.isBossRoomLocked = options.isBossRoomLocked ~= false and true or false
   constraints.generateGoal = options.generateGoal ~= false and true or false
   constraints.maxKeys = options.maxKeys or 0
+  constraints.maxSwitches = options.maxSwitches or 0
   constraints.maxRooms = options.maxRooms or 42
   constraints.maxRetries = options.maxRetries or 10
   
