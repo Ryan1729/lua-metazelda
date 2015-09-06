@@ -72,7 +72,7 @@ function conditions.singleSymbolDifference(condition1, condition2)
   end
   
   if (condition1.switchState == condition2.switchState) then
-    return conditions.make(getCombinedKeyLevel(condition1.keyLevel, condition2.keyLevel)-1);
+    return conditions.make(getCombinedKeyLevel(condition1.keyLevel, condition2.keyLevel));
   else
     -- Multiple symbols needed
     if (condition1.keyLevel ~= condition2.keyLevel) then
