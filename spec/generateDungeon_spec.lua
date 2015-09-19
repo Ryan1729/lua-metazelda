@@ -64,6 +64,15 @@ local function goalRoomTest(dungeon)
   end)
 end
 
+local function noGoalRoomTest(dungeon)
+  it("has no goal room", function()
+    for _, room in ipairs(dungeon) do
+      assert.are_not.equal("goal", room.item)
+    end
+    
+  end)
+end
+
 local function fourWayTests(fourWayDungeon)
   return function()
     it("has only 4 way adjacent rooms", function()
@@ -146,7 +155,12 @@ describe("generateDungeon tests", function()
     
   describe("boss Unlocked dungeon", basicTests(bossUnlockedDungeon))
   describe("boss Unlocked dungeon", goalRoomTest(bossUnlockedDungeon))
-
+  
+  local switchDungeon = generateDungeon(getConstraints({maxSwitches = 1}))
+    
+  describe("switch dungeon", basicTests(switchDungeon))
+  describe("switch dungeon", goalRoomTest(switchDungeon))
+  
   local rejectAtLeastOnce = (function()
     local timesRan = 0
     
