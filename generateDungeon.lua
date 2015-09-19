@@ -314,7 +314,7 @@ local function switchLockChildRooms(room, givenState, dungeon)
     local neighborId = edge.targetRoomId
     local nextRoom = getRoomFromDungeon(dungeon, neighborId)
     if (tablex.find(room.children, nextRoom) ~= nil) then
-      if (conditions.isDefault(rooms.getEdge(room, neighborId).condition) --[[and math.random() < 0.25]]) then
+      if (conditions.isDefault(rooms.getEdge(room, neighborId).condition) and math.random() < 0.25) then
         rooms.link(room, nextRoom, currentCondition)
         addConditionToDescendants(nextRoom, currentCondition)
         anyLocks = true;
